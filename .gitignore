@@ -1,0 +1,21 @@
+# 가상환경 / 캐시
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+scripts/.corpcode_cache.xml
+
+# 비밀 키
+.dart_key
+.anthropic_key
+.streamlit/secrets.toml
+
+# 데이터 / 산출물 (자료는 커밋하지 않음)
+00_inbox/
+01_parsed/
+02_analysis/
+03_output/
+
+# OS
+.DS_Store
+Thumbs.db

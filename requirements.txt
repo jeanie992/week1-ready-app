@@ -1,0 +1,9 @@
+pandas>=2.2.3
+openpyxl>=3.1.5
+defusedxml>=0.7.1
+pdfplumber>=0.11
+python-docx>=1.1
+python-pptx>=0.6.23
+hwpkit[full]>=0.1
+streamlit>=1.40
+anthropic>=0.40
