@@ -177,6 +177,55 @@ def write_table(ws, top, left, headers, rows, units=None, fmt="int_red"):
     return r - 1
 
 
+def append_tab(path, title, headers, rows, subtitle="", keep_raw_last=True):
+    """기존 워크북(path)에 스타일 탭을 추가(같은 이름 있으면 교체)
+    Claude 가 운영지표·요약 등 판단형 탭을 붙일 때 사용 : 스크립트 자동탭 위에 깊이를 더한다
+    headers : 컬럼 헤더 리스트(첫 칸 = 라벨 헤더) : "NOTE" 포함 가능
+    rows    : [(cells, fmt), ...] : cells = 헤더 길이에 맞춘 값(문자=라벨, 숫자=수치) : fmt = "num"/"pct"/"eok"
+    예) append_tab("03_output/재무마스터_자동.xlsx", "6.운영지표",
+                   ["지표","단위","OPCC","OPI","NOTE"],
+                   [(["영업이익률","%",0.356,0.141,"OPCC 최고"], "pct"),
+                    (["ADR","천원",330,212,"인상여력"], "num")])
+    """
+    from openpyxl import load_workbook
+    from openpyxl.utils import get_column_letter
+    fmts = {"num": "#,##0", "pct": "0.0%", "pct1": "0.0%",
+            "eok": "#,##0.0;[Red]\\-#,##0.0;\\-;@", "won": "#,##0"}
+    wb = load_workbook(path)
+    if title in wb.sheetnames:
+        del wb[title]
+    ws = wb.create_sheet(title)
+    label(ws.cell(2, 2), title, bold=True)
+    if subtitle:
+        ws.cell(3, 2).value = clean_text(subtitle); ws.cell(3, 2).font = FONT_NOTE
+    hr = 4
+    for j, h in enumerate(headers):
+        header(ws.cell(hr, 2 + j), h)
+    r = hr + 1
+    for cells, fmt in rows:
+        for j, v in enumerate(cells):
+            cell = ws.cell(r, 2 + j)
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                num(cell, v, fmts.get(fmt, fmt))
+            elif j < len(headers) and str(headers[j]).upper() == "NOTE":
+                cell.value = clean_text(v) if v else None
+                cell.font = FONT_NOTE
+                cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+                cell.border = BORDER_THIN
+            else:
+                label(cell, "" if v is None else str(v))
+        r += 1
+    ws.column_dimensions["A"].width = W_MARGIN
+    ws.column_dimensions["B"].width = 22
+    for j in range(1, len(headers)):
+        ws.column_dimensions[get_column_letter(2 + j)].width = 40 if str(headers[j]).upper() == "NOTE" else 11
+    ws.sheet_view.showGridLines = False
+    if keep_raw_last:        # 원본_ 시트는 항상 맨 뒤로
+        wb._sheets.sort(key=lambda s: 1 if s.title.startswith("원본_") else 0)
+    wb.save(path)
+    return title
+
+
 if __name__ == "__main__":
     # 데모 : 모듈이 정상 적용되는지 작은 표 생성
     from openpyxl import Workbook
