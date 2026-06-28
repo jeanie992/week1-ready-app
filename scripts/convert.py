@@ -97,6 +97,48 @@ def warn_for(kind: str, n_chars: int) -> str:
     return ""
 
 
+def _clean_table(t):
+    """노이즈(차트 텍스트박스) 제거 : 3행+·3열+·숫자 4개+·밀도 조건을 통과한 표만"""
+    rows = [[(c or "").replace("\n", " ").strip() for c in r] for r in t]
+    rows = [r for r in rows if any(r)]
+    if len(rows) < 3:
+        return None
+    ncol = max(len(r) for r in rows)
+    digits = sum(1 for r in rows for c in r if any(ch.isdigit() for ch in c))
+    nonempty = sum(1 for r in rows for c in r if c)
+    if ncol < 3 or digits < 4 or nonempty < len(rows) * 1.5:
+        return None
+    return rows
+
+
+def extract_pdf_tables(path):
+    """PDF 에서 '진짜 격자 표'만 추출(차트 이미지는 못 잡음) → (페이지, 표번호, 행들) 리스트"""
+    import pdfplumber
+    blocks = []
+    with pdfplumber.open(path) as pdf:
+        for i, pg in enumerate(pdf.pages, 1):
+            for k, t in enumerate(pg.extract_tables() or [], 1):
+                rows = _clean_table(t)
+                if rows:
+                    blocks.append((i, k, rows))
+    return blocks
+
+
+def tables_to_md(blocks, src):
+    out = [f"# 추출된 표 : {src}",
+           "> pdfplumber extract_tables : 격자 구조 표만(차트 이미지 제외) : 수치는 원본 PDF 대조 권장", ""]
+    for i, k, rows in blocks:
+        w = max(len(r) for r in rows)
+        rows = [r + [""] * (w - len(r)) for r in rows]
+        out.append(f"## p{i} 표{k}")
+        out.append("| " + " | ".join(rows[0]) + " |")
+        out.append("|" + "---|" * w)
+        for r in rows[1:]:
+            out.append("| " + " | ".join(r) + " |")
+        out.append("")
+    return "\n".join(out)
+
+
 def main() -> int:
     if not INBOX.exists():
         print(f"[오류] 입력 폴더가 없습니다: {INBOX}", file=sys.stderr)
@@ -122,13 +164,23 @@ def main() -> int:
                 # 출처 표시를 머리에 달아 Claude 가 인용하기 쉽게
                 header = f"# 원본: {kind}/{name}\n\n"
                 out_path.write_text(header + text, encoding="utf-8")
+                ntab = 0
+                if kind == "pdf":
+                    try:
+                        blocks = extract_pdf_tables(path)
+                        ntab = len(blocks)
+                        if blocks:
+                            (OUT / (path.stem + "_tables.md")).write_text(tables_to_md(blocks, name), encoding="utf-8")
+                    except Exception as te:
+                        print(f"     (표 추출 건너뜀: {te})", file=sys.stderr)
                 warn = warn_for(kind, n)
                 status = "OK" if n >= MIN_CHARS_WARN else ("EMPTY" if n == 0 else "OK")
                 if status == "OK":
                     ok += 1
                 rows.append([name, kind, n, status, warn])
                 tag = "OK " if not warn else "!! "
-                print(f"  {tag}[{kind}] {name}  ({n:,}자)  {warn}")
+                tinfo = f", 표 {ntab}개" if ntab else ""
+                print(f"  {tag}[{kind}] {name}  ({n:,}자{tinfo})  {warn}")
             except Exception as e:  # 한 파일 실패가 전체를 막지 않게
                 rows.append([name, kind, 0, "ERROR", f"{type(e).__name__}: {e}"])
                 print(f"  XX [{kind}] {name}  추출 실패: {e}", file=sys.stderr)
