@@ -107,8 +107,8 @@ dart_key = c2.text_input("DART API 키", type="password",
                          help=".dart_key 파일이 있으면 비워두세요")
 if dart_key:
     (ROOT / ".dart_key").write_text(dart_key.strip(), encoding="utf-8")
-anthropic_key = st.text_input("Anthropic API 키 (NOTE 인사이트 자동 생성, 선택)", type="password",
-                              help="없으면 규칙 기반(YoY 급변)으로 NOTE 생성")
+anthropic_key = st.text_input("Anthropic API 키 (NOTE 인사이트, 선택)", type="password",
+                              help="비우면 : 로컬은 Claude Code(Max 구독)로, 클라우드는 규칙 기반으로 NOTE 생성")
 
 # ── 4. 분석 실행 ─────────────────────────────────────────────────────────────
 st.subheader("4. 분석 실행")

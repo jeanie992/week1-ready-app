@@ -123,8 +123,8 @@ def cover(wb, company, years, used_llm):
 
 
 def main():
-    company = sys.argv[1] if len(sys.argv) > 1 else "회사"
-    use_llm = "--llm" in sys.argv
+    company = next((a for a in sys.argv[1:] if not a.startswith("-")), "회사")
+    use_llm = "--no-llm" not in sys.argv   # 기본 : LLM 시도(API 키 없으면 로컬 Claude Code=Max)
     m = dart_parse.parse_all()
     if not m["years"]:
         sys.exit("[오류] 01_parsed 에 DART_*.txt 가 없습니다 (dart_fetch.py 먼저 실행)")
