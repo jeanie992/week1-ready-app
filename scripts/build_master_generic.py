@@ -59,6 +59,19 @@ def _find(ents, keys):
     return None
 
 
+def _ctx(tidy, iyears, cats, rev, oi):
+    """NOTE 인과추적용 내부 맥락 : 사업부별 매출·영업이익 최근 추세를 LLM 에 전달"""
+    if tidy is None or not iyears:
+        return ""
+    ys = iyears[-3:] if len(iyears) >= 3 else iyears
+    lines = ["[내부 사업부 손익 (억원) : 매출 변화의 출처 추적용]"]
+    for cat in cats:
+        rv = " ".join(f"{y}:{(_val(tidy, rev, cat, y) or 0)/1e8:.0f}" for y in ys)
+        ov = " ".join(f"{(_val(tidy, oi, cat, y) or 0)/1e8:.0f}" for y in ys)
+        lines.append(f"{cat} 매출 {rv} / 영업이익 {ov}")
+    return "\n".join(lines)
+
+
 def _numfmt(cell, fmt, bold=False):
     cell.font = S.FONT_NUM_B if bold else S.FONT_NUM
     cell.alignment = S.AL_NUM
@@ -297,7 +310,8 @@ def main():
 
     # 분석 탭 (앞) — 원본참조
     if dyears:
-        notes_all = llm_notes.generate(m, dyears, company=company, use_llm=use_llm)
+        notes_all = llm_notes.generate(m, dyears, company=company,
+                                       extra_context=_ctx(tidy, iyears, cats, rev, oi), use_llm=use_llm)
         nt = {st: {a: n for (s2, a), n in notes_all.items() if s2 == st} for st in ("IS", "BS", "CF")}
         rIS = raw_statement(wb, "손익", dyears, m["order"]["IS"], m["IS"])
         rBS = raw_statement(wb, "재무상태", dyears, m["order"]["BS"], m["BS"])
